@@ -69,14 +69,14 @@ def freezeParameters(model):
         param.requires_grad = False
 
 
-def createClassifier(hidden_units):
+def createClassifier(hidden_units,output_units):
     from collections import OrderedDict
     classifier = nn.Sequential(OrderedDict([
         ('fc1', nn.Linear(25088, 1000)),
         ('relu', nn.ReLU()),
         ('fc2', nn.Linear(1000, hidden_units)),
         ('relu', nn.ReLU()),
-        ('fc3', nn.Linear(hidden_units, 102)),
+        ('fc3', nn.Linear(hidden_units, output_units)),
         ('output', nn.LogSoftmax(dim=1))
     ]))
     classifier.dropout = nn.Dropout(p=0.5)
@@ -116,7 +116,7 @@ def trainNetwork(model, training_dataloader, testing_dataloader, lr=0.001, epoch
     epochs = epochs  # 1 for testing loading and saving. TODO: increase this after test is complete. 3 is good.
     steps = 0
     running_loss = 0
-    print_every = 40
+    print_every = 40 #TODO tweak this
     model.to(device_type)  # Use GPU
 
     criterion = nn.NLLLoss()
@@ -169,7 +169,7 @@ def trainAndCheckpointModel(model,arch,data_dir,save_dir,epochs_completed=0, epo
     saveCheckpointToFile(arch,epochs_completed, model,data_dir,save_dir)
 
 
-def initializePretrainedModel(arch, hidden_units):
+def initializePretrainedModel(arch, hidden_units, output_units):
     if arch=="VGG13":
         model = models.vgg13(pretrained=True)
     elif arch=="VGG16":
@@ -177,7 +177,7 @@ def initializePretrainedModel(arch, hidden_units):
     else:
         raise RuntimeError("Unsupported Architecture")
     freezeParameters(model)
-    model.classifier = createClassifier(hidden_units)
+    model.classifier = createClassifier(hidden_units,output_units)
     return model
 
 
@@ -195,37 +195,37 @@ def createCheckpointDictionary(arch,epochs_completed, model, data_dir):
                   }
     return checkpoint
 
-def retrieveModelFromCheckpoint(checkpoint_pth,hidden_units=512):
-    model = loadModelFromCheckpoint(checkpoint_pth,hidden_units)
+def retrieveModelFromCheckpoint(checkpoint_pth,hidden_units=512,output_units=102):
+    model = loadModelFromCheckpoint(checkpoint_pth,hidden_units,output_units)
     return model
 
 
-def createOurModelFromVGG16(hidden_units):
+def createOurModelFromVGG16(hidden_units,output_units):
     model = models.vgg16(pretrained=True)
-    freezeParametersAndAttachOurClassifier(hidden_units, model)
+    freezeParametersAndAttachOurClassifier(hidden_units,output_units, model)
     return model
 
 
-def freezeParametersAndAttachOurClassifier(hidden_units, model):
+def freezeParametersAndAttachOurClassifier(hidden_units,output_units, model):
     freezeParameters(model)  # we don't want to calculate gradients in this phase, so freeze
-    model.classifier = createClassifier(hidden_units)  # make sure we rebuild the architecture exactly, here: classifer
+    model.classifier = createClassifier(hidden_units,output_units)  # make sure we rebuild the architecture exactly, here: classifer
 
 
-def createOurModelFromVGG13(hidden_units):
+def createOurModelFromVGG13(hidden_units,output_units):
     model = models.vgg13(pretrained=True)
-    freezeParametersAndAttachOurClassifier(hidden_units,model)
+    freezeParametersAndAttachOurClassifier(hidden_units,output_units,model)
     return model
 
 
-def loadModelFromCheckpoint(checkpoint_pth, hidden_units):
+def loadModelFromCheckpoint(checkpoint_pth, hidden_units,output_units):
     checkpoint = torch.load(checkpoint_pth)
     # attach state dictionary from the loaded checkpoint to model
     loaded_state_dict = checkpoint['state_dict']
     arch_ = checkpoint['arch']
     if arch_ == "VGG16":
-        model = createOurModelFromVGG16(hidden_units)
+        model = createOurModelFromVGG16(hidden_units,output_units)
     elif arch_ == "VGG13":
-        model = createOurModelFromVGG13(hidden_units)
+        model = createOurModelFromVGG13(hidden_units,output_units)
     else:
         raise RuntimeError("Unrecognized architecture model {}".format(arch_))
     #

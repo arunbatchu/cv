@@ -58,8 +58,7 @@ parser.add_argument("--checkpointpath", type=str, default="checkpoint.pth"
 namespace = parser.parse_args()
 
 test_path_name = namespace.flowerpath
-# Image.open(test_path_name).show()
-model = h.retrieveModelFromCheckpoint(namespace.checkpointpath)
+model = h.retrieveModelFromCheckpoint(namespace.checkpointpath,hidden_units=512,output_units=102)
 #By default, choose device type to be cpu
 device_type = 'cpu'
 if namespace.gpu == True:
