@@ -51,13 +51,13 @@ def predict(image_path, model, topk=5, device_type='cuda'):
 parser =argparse.ArgumentParser()
 parser.add_argument("--gpu",help="Optional to run on gpu if available", action='store_true')
 parser.add_argument("--top_k", type=int, required=False, help="Top K most likely classes. There are a total of 102 classes.", default=5)
-parser.add_argument("--flowerpath", type=str, required=True, help="File path to flower jpeg")
+parser.add_argument("--imagepath", type=str, required=True, help="File path to jpeg to be classified")
 parser.add_argument("--checkpointpath", type=str, default="checkpoint.pth"
                     , help="File path to checkpoint file. Default is checkpoint.pth in current directory."
                     )
 namespace = parser.parse_args()
 
-test_path_name = namespace.flowerpath
+test_path_name = namespace.imagepath
 model = h.retrieveModelFromCheckpoint(namespace.checkpointpath,hidden_units=512,output_units=102)
 #By default, choose device type to be cpu
 device_type = 'cpu'
