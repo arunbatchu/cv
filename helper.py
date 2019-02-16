@@ -1,5 +1,4 @@
-# Build  Network
-# Freeze parameters so we don't backprop through them
+
 from datetime import datetime
 
 import torch
@@ -8,7 +7,6 @@ from torch import nn, optim
 from torchvision import transforms, datasets, models
 import json
 
-# data_dir = 'flowers'
 batch_size = 64
 
 
@@ -61,9 +59,6 @@ def createValidationDataset(data_dir):
                                                                      ]))
 
 
-# validation_dataset = createValidationDataset(data_dir)
-# validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size)
-
 def freezeParameters(model):
     for param in model.parameters():
         param.requires_grad = False
@@ -87,8 +82,6 @@ def validation(model, testloader, criterion, device_type='cuda'):
     accuracy = 0
     test_loss = 0
     for images, labels in testloader:
-        #         images = images.resize_(images.size()[0], 784)
-
         # Move input and label tensors to the GPU
         images, labels = images.to(device_type), labels.to(device_type)
         output = model.forward(images)
@@ -99,7 +92,6 @@ def validation(model, testloader, criterion, device_type='cuda'):
         ps = torch.exp(output)
         # Class with highest probability is our predicted class, compare with true label
         equality = (labels.data == ps.max(1)[1])
-        #         print (equality)
         # Accuracy is number of correct predictions divided by all predictions, just take the mean
         accuracy += equality.type_as(torch.FloatTensor()).mean()
 
@@ -153,8 +145,8 @@ def trainNetwork(model, training_dataloader, testing_dataloader, lr=0.001, epoch
     print("Completed training @ : {}".format(datetime.now()))
     return epochs + epochs_completed
 
-def getCategoryNamesDictionary():
-    with open('cat_to_name.json', 'r') as f:
+def getCategoryNamesDictionary(cat_to_name_file='cat_to_name.json'):
+    with open(cat_to_name_file, 'r') as f:
         cat_to_name = json.load(f)
     return cat_to_name
 

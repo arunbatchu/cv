@@ -22,7 +22,7 @@ def process_image(image):
     return img_tensor
 
 
-def predict(image_path, model, topk=5, device_type='cuda'):
+def predict(image_path, model, topk=5, device_type='cuda',cat_to_name_file=None):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
     model.to(device_type)
@@ -37,14 +37,16 @@ def predict(image_path, model, topk=5, device_type='cuda'):
     probabilities = torch.exp(output)
     probabilities = probabilities.to('cpu')
     # calculate topk
-    #probabilities = probabilities.data.numpy().squeeze() #What does squeeze do?
     values, indices = probabilities.topk(topk)
     indices = indices.data.numpy().squeeze()
     indices_list = indices.tolist()
-    idx_to_class = {val: key for key, val in model.class_to_idx.items()}
-    cat_to_name = h.getCategoryNamesDictionary()
-    topK_classes = [cat_to_name[category_key] for category_key in [idx_to_class[index] for index in indices_list]]
-    return topK_classes, values
+    if(cat_to_name_file!=None):
+        idx_to_class = {val: key for key, val in model.class_to_idx.items()}
+        cat_to_name = h.getCategoryNamesDictionary(cat_to_name_file)
+        topK_classes = [cat_to_name[category_key] for category_key in [idx_to_class[index] for index in indices_list]]
+        return topK_classes, values
+    else:
+        return indices_list, values
 
 # Get command line arguments
 #
@@ -52,6 +54,7 @@ parser =argparse.ArgumentParser()
 parser.add_argument("--gpu",help="Optional to run on gpu if available", action='store_true')
 parser.add_argument("--top_k", type=int, required=False, help="Top K most likely classes. There are a total of 102 classes.", default=5)
 parser.add_argument("--imagepath", type=str, required=True, help="File path to jpeg to be classified")
+parser.add_argument("--cat_to_name", type=str, required=False, help="File path to category to name mapping in json format")
 parser.add_argument("--checkpointpath", type=str, default="checkpoint.pth"
                     , help="File path to checkpoint file. Default is checkpoint.pth in current directory."
                     )
@@ -63,7 +66,7 @@ model = h.retrieveModelFromCheckpoint(namespace.checkpointpath,hidden_units=512,
 device_type = 'cpu'
 if namespace.gpu == True:
     device_type = 'cuda'
-topK_classes, probabilities = predict(test_path_name, model, namespace.top_k, device_type=device_type)
+topK_classes, probabilities = predict(test_path_name, model, namespace.top_k, device_type=device_type,cat_to_name_file=namespace.cat_to_name)
 probabilities = probabilities.data.numpy().squeeze()#tensor --> numpy and flatten
 print("Top {} classes".format(namespace.top_k))
 index = 0
