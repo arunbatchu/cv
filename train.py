@@ -1,6 +1,9 @@
 import argparse
+import torch
+from torch import nn
 
 import helper as h
+
 
 #
 # Get command line arguments
@@ -21,7 +24,7 @@ if namespace.gpu == True:
     device_type = 'cuda'
 else:
     device_type = 'cpu'
-h.trainAndCheckpointModel(
+model = h.trainAndCheckpointModel(
                           h.initializePretrainedModel(
                               namespace.arch
                               ,namespace.hidden_units
@@ -34,3 +37,9 @@ h.trainAndCheckpointModel(
                           ,lr=namespace.learning_rate
                           ,device_type=device_type
                           )
+
+h.test_trained_network(model,h.createTestingDataloader(namespace.data_dir))
+
+
+
+

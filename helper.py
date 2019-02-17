@@ -164,6 +164,7 @@ def trainAndCheckpointModel(model, arch, data_dir, save_dir, epochs_completed=0,
                                     , device_type=device_type)
     # Training is done, Lets save our work
     saveCheckpointToFile(arch, epochs_completed, model, data_dir, save_dir)
+    return model
 
 
 def initializePretrainedModel(arch, hidden_units, output_units):
@@ -186,8 +187,7 @@ def saveCheckpointToFile(arch, epochs_completed, model, data_dir, save_dir):
 
 def createCheckpointDictionary(arch, epochs_completed, model, data_dir):
     checkpoint = {'state_dict': model.state_dict(),
-                  'class_to_idx': createTestingDataset(data_dir).class_to_idx,
-                  # TODO: Should this be training dataset's?
+                  'class_to_idx': createTrainingDataset(data_dir).class_to_idx,
                   'epochs_completed': epochs_completed
         , 'arch': arch
         , 'classifier': model.classifier
@@ -225,3 +225,30 @@ def loadModelFromCheckpoint(checkpoint_pth):
 
     print("Loaded model was previously trained for {} epochs".format(checkpoint['epochs_completed']))
     return model
+def test_trained_network(model,testing_dataloader):
+    # Test out your network!
+    model.eval()
+    model.to('cuda')  # Use GPU
+    criterion = nn.NLLLoss()
+    accuracy = 0
+    test_loss = 0
+    torch.no_grad()
+    for images, labels in testing_dataloader:
+        test_loss_this_batch, accuracy_this_batch = 0, 0
+        images, labels = images.to('cuda'), labels.to('cuda')
+        output = model.forward(images)
+        test_loss_this_batch += criterion(output, labels).item()
+        test_loss += test_loss_this_batch
+        ps = torch.exp(output)
+        # Class with highest probability is our predicted class, compare with true label
+        equality = (labels.data == ps.max(1)[1])
+        # Accuracy is number of correct predictions divided by all predictions, just take the mean
+        accuracy_this_batch += equality.type_as(torch.FloatTensor()).mean()
+        accuracy += accuracy_this_batch
+        print(
+            "Test Loss this batch:{:.3f}, Accuracy this batch:{:.3f}".format(test_loss_this_batch, accuracy_this_batch))
+
+    print("=============Average Loss and Accuracy for testing daataset========")
+    print("Test Loss: {:.3f}..".format(test_loss / len(testing_dataloader)),
+          "Test Accuracy: {:.3f}".format(accuracy / len(testing_dataloader)))
+
