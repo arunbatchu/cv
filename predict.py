@@ -1,9 +1,50 @@
+from numpy.core.multiarray import ndarray
 from torchvision import transforms
 import torch
 import helper as h
 from PIL import Image
 import argparse
+import numpy as np
+
 def process_image(image):
+    ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
+        returns an Numpy array
+    '''
+    image = resize_PIL_image(image,resize_to=256)
+    image = centercrop_PIL_image(image,crop_size=224)
+
+    #Normalize
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    np_image = np.array(image)
+    np_image = np_image / np_image.max()
+    np_image = (np_image - mean)/std
+    np_image = np_image.transpose(2,0,1)
+
+    return np_image
+
+
+def centercrop_PIL_image(image, crop_size=224):
+    # Center crop
+    left = (image.width - crop_size) / 2
+    top = (image.height - crop_size) / 2
+    right = (image.width + crop_size) / 2
+    bottom = (image.height + crop_size) / 2
+    image = image.crop((left, top, right, bottom))
+    return image
+
+
+def resize_PIL_image(image, resize_to=256):
+    # Resize
+    shortest_side = min(image.width, image.height)
+    height = int((image.height / shortest_side) * resize_to)
+    width = int((image.width / shortest_side) * resize_to)
+    # Resize takes a tuple
+    image = image.resize((width, height))
+    return image
+
+
+def process_image_using_pytorch_transforms(image):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
         returns an Numpy array
     '''
@@ -28,7 +69,10 @@ def predict(image_path, model, topk=5, device_type='cuda',cat_to_name_file=None)
     model.to(device_type)
     model.eval()
     img_pil=Image.open(image_path)
-    img_tensor = process_image(img_pil)
+    np_image: ndarray = process_image(img_pil)
+    img_tensor = torch.from_numpy(np_image).float()
+    print(type(img_tensor))
+
     #TODO convert to plural images. How?
     images = img_tensor.to(device_type).unsqueeze_(0) #convert to device type and add batchsize=1 to first column
     # Calculate the class probabilities (softmax) for img
@@ -61,7 +105,7 @@ parser.add_argument("--checkpointpath", type=str, default="checkpoint.pth"
 namespace = parser.parse_args()
 
 test_path_name = namespace.imagepath
-model = h.retrieveModelFromCheckpoint(namespace.checkpointpath,hidden_units=512,output_units=102)
+model = h.retrieveModelFromCheckpoint(namespace.checkpointpath)
 #By default, choose device type to be cpu
 device_type = 'cpu'
 if namespace.gpu == True:

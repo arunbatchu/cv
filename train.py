@@ -21,7 +21,12 @@ if namespace.gpu == True:
     device_type = 'cuda'
 else:
     device_type = 'cpu'
-h.trainAndCheckpointModel(h.initializePretrainedModel(namespace.arch,namespace.hidden_units,output_units=namespace.output_units)
+h.trainAndCheckpointModel(
+                          h.initializePretrainedModel(
+                              namespace.arch
+                              ,namespace.hidden_units
+                              ,output_units=namespace.output_units
+                          )
                           ,namespace.arch
                           ,namespace.data_dir
                           ,save_dir = namespace.save_dir

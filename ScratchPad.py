@@ -1,93 +1,92 @@
-# TODO: Define your transforms for the training, validation, and testing sets
-import torch
+
 from PIL import Image
-from torchvision import transforms, datasets
-# training_transforms =  transforms.Compose([transforms.Resize(255),
-# #                                        transforms.RandomRotation(30),
-# #                                        transforms.RandomResizedCrop(224),
-#                                        transforms.CenterCrop(224),
-#                                        transforms.RandomHorizontalFlip(),
-#                                        transforms.ToTensor(),
-#                                        transforms.Normalize([0.485,0.456,0.406],
-#                                                             [0.229,0.224,.225])
-#                                       ])
-# testing_transforms = transforms.Compose([transforms.Resize(255),
-#                                       transforms.CenterCrop(224),
-#                                       transforms.ToTensor(),
-#                                       transforms.Normalize([0.485,0.456,0.406],
-#                                                             [0.229,0.224,.225])
-#                                       ])
-#
-#
-# # TODO: Load the datasets with ImageFolder
-# training_dataset = datasets.ImageFolder(train_dir, transform=training_transforms)
-# testing_dataset = datasets.ImageFolder(test_dir, transform=testing_transforms)
-# print(testing_dataset.class_to_idx.items())
-#
-#
-# # TODO: Using the image datasets and the trainforms, define the dataloaders
-# training_dataloader = torch.utils.data.DataLoader(training_dataset, batch_size=64, shuffle = True)
-# testing_dataloader = torch.utils.data.DataLoader(testing_dataset, batch_size=64)
-#
-# from PIL import Image
-# import torchvision.transforms.functional as TF
-#
-# image = Image.open('YOUR_PATH')
-# x = TF.to_tensor(image)
-# x.unsqueeze_(0)
-# print(x.shape)
-#
-# output = model(X)
-
-################3
-normalize = transforms.Normalize(
-   mean=[0.485, 0.456, 0.406],
-   std=[0.229, 0.224, 0.225]
-)
-preprocess = transforms.Compose([
-   transforms.Resize(256),
-   transforms.CenterCrop(224),
-   transforms.ToTensor(),
-   normalize
-])
-
-img_pil=Image.open("/home/arun/Downloads/cat.jpg")
-img_pil.show()
-img_tensor = preprocess(img_pil)
-img_tensor.unsqueeze_(0)
+from torchvision import transforms
+import matplotlib.pyplot as plt
+import numpy as np
+from pylab import *
 
 
-#################
-def view_classify(img, ps, class_to_idx):
-    ''' Function for viewing an image and it's predicted classes.
+
+def process_image(image):
+    ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
+        returns an Numpy array
     '''
-    values, indices = ps.topk(5)
-    indices = indices.to('cpu')
-    print(indices)
-    #     print(indices)
-    print(values)
-    #     labels = [cat_to_name[i] for i in indices.to('cpu')]
-    #     print(labels)
-    img, ps = img.to('cpu'), ps.to('cpu')
-    img = img.numpy().transpose((1, 2, 0))
+    image = resize_PIL_image(image,resize_to=256)
+    image = centercrop_PIL_image(image,crop_size=224)
+
+    #Normalize
     mean = np.array([0.485, 0.456, 0.406])
     std = np.array([0.229, 0.224, 0.225])
-    img = std * img + mean
-    img = np.clip(img, 0, 1)
+    np_image = np.array(image)
+    np_image = np_image / np_image.max()
+    np_image = (np_image - mean)/std
+    np_image = np_image.transpose(2,0,1)
 
-    ps = ps.data.numpy().squeeze()
-    indices_list = indices.tolist()
-    idx_to_class = {val: key for key, val in class_to_idx.items()}
-    top_5_categories = [cat_to_name[category_key] for category_key in [idx_to_class[index] for index in indices_list]]
+    return np_image
 
-    fig, (ax1, ax2) = plt.subplots(figsize=(20, 9), ncols=2)
-    ax1.imshow(img)
-    ax1.axis('off')
-    ax2.barh(np.arange(5), values)
-    ax2.set_aspect(0.1)
-    ax2.set_yticks(np.arange(5))
 
-    ax2.set_yticklabels(top_5_categories)
+def centercrop_PIL_image(image, crop_size=224):
+    # Center crop
+    left = (image.width - crop_size) / 2
+    top = (image.height - crop_size) / 2
+    right = (image.width + crop_size) / 2
+    bottom = (image.height + crop_size) / 2
+    image = image.crop((left, top, right, bottom))
+    return image
 
-    ax2.set_title('Class Probability')
-    ax2.set_xlim(0, 1.1)
+
+def resize_PIL_image(image, resize_to=256):
+    # Resize
+    shortest_side = min(image.width, image.height)
+    height = int((image.height / shortest_side) * resize_to)
+    width = int((image.width / shortest_side) * resize_to)
+    # Resize takes a tuple
+    image = image.resize((width, height))
+    return image
+
+
+def process_image_old(image):
+    ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
+        returns an Numpy array
+    '''
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize
+    ])
+    img_tensor = preprocess(image)
+    np_image = img_tensor.numpy()
+    print(np_image.max())
+    print(np_image.min())
+    return np_image
+
+
+def imshow(image, ax=None, title=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    # PyTorch tensors assume the color channel is the first dimension
+    # but matplotlib assumes is the third dimension
+    image = image.transpose((1, 2, 0))
+
+    # Undo preprocessing
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    image = std * image + mean
+
+    # Image needs to be clipped between 0 and 1 or it looks like noise when displayed
+    image = np.clip(image, 0, 1)
+    ax.axis('off')
+    ax.imshow(image)
+
+
+img_pil=Image.open("flowers/test/10/image_07090.jpg")
+# img_pil.show()
+imshow(process_image(img_pil))
+plt.show()
+

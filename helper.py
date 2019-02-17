@@ -1,11 +1,9 @@
-
+import json
 from datetime import datetime
 
 import torch
-
 from torch import nn, optim
 from torchvision import transforms, datasets, models
-import json
 
 batch_size = 64
 
@@ -41,22 +39,26 @@ def createTrainingDataloader(data_dir):
 
 def createTestingDataset(data_dir):
     return datasets.ImageFolder(data_dir + '/test', transform=(transforms.Compose([(createResizeTransform()),
-                                                                               (createCenterCropTransform()),
-                                                                               transforms.ToTensor(),
-                                                                               (createNormalizTransform())
-                                                                               ])))
+                                                                                   (createCenterCropTransform()),
+                                                                                   transforms.ToTensor(),
+                                                                                   (createNormalizTransform())
+                                                                                   ])))
 
 
 def createTestingDataloader(data_dir):
     return torch.utils.data.DataLoader(createTestingDataset(data_dir), batch_size)
 
 
+def createValidationDataloader(data_dir):
+    return torch.utils.data.DataLoader(createValidationDataset(data_dir), batch_size)
+
+
 def createValidationDataset(data_dir):
     return datasets.ImageFolder(data_dir + '/valid', transforms.Compose([(createResizeTransform()),
-                                                                     (createCenterCropTransform()),
-                                                                     transforms.ToTensor(),
-                                                                     (createNormalizTransform())
-                                                                     ]))
+                                                                         (createCenterCropTransform()),
+                                                                         transforms.ToTensor(),
+                                                                         (createNormalizTransform())
+                                                                         ]))
 
 
 def freezeParameters(model):
@@ -64,7 +66,7 @@ def freezeParameters(model):
         param.requires_grad = False
 
 
-def createClassifier(hidden_units,output_units):
+def createClassifier(hidden_units, output_units):
     from collections import OrderedDict
     classifier = nn.Sequential(OrderedDict([
         ('fc1', nn.Linear(25088, 1000)),
@@ -78,10 +80,10 @@ def createClassifier(hidden_units,output_units):
     return classifier
 
 
-def validation(model, testloader, criterion, device_type='cuda'):
+def validation(model, validation_dataloader, criterion, device_type='cuda'):
     accuracy = 0
     test_loss = 0
-    for images, labels in testloader:
+    for images, labels in validation_dataloader:
         # Move input and label tensors to the GPU
         images, labels = images.to(device_type), labels.to(device_type)
         output = model.forward(images)
@@ -98,7 +100,8 @@ def validation(model, testloader, criterion, device_type='cuda'):
     return test_loss, accuracy
 
 
-def trainNetwork(model, training_dataloader, testing_dataloader, lr=0.001, epochs=1, epochs_completed=0, device_type='cuda'):
+def trainNetwork(model, training_dataloader, validation_dataloader, lr=0.001, epochs=1, epochs_completed=0,
+                 device_type='cuda'):
     """
 
     :type epochs: int
@@ -108,7 +111,7 @@ def trainNetwork(model, training_dataloader, testing_dataloader, lr=0.001, epoch
     epochs = epochs  # 1 for testing loading and saving. TODO: increase this after test is complete. 3 is good.
     steps = 0
     running_loss = 0
-    print_every = 40 #TODO tweak this
+    print_every = 40
     model.to(device_type)  # Use GPU
 
     criterion = nn.NLLLoss()
@@ -134,99 +137,91 @@ def trainNetwork(model, training_dataloader, testing_dataloader, lr=0.001, epoch
                 model.eval()  # evaluation mode
                 # Turn off gradients for validation, will speed up inference
                 with torch.no_grad():  # turn off gradient calculations
-                    test_loss, accuracy = validation(model, testing_dataloader, criterion, device_type=device_type)
+                    test_loss, accuracy = validation(model, validation_dataloader, criterion, device_type=device_type)
 
                 print("Epoch: {}/{}.. ".format(e + 1, epochs),
                       "Training Loss: {:.3f}.. ".format(running_loss / print_every),
-                      "Test Loss: {:.3f}..".format(test_loss / len(testing_dataloader)),
-                      "Test Accuracy: {:.3f}".format(accuracy / len(testing_dataloader))
+                      "Validation Loss: {:.3f}..".format(test_loss / len(validation_dataloader)),
+                      "Validation Accuracy: {:.3f}".format(accuracy / len(validation_dataloader))
                       )
                 running_loss = 0
     print("Completed training @ : {}".format(datetime.now()))
     return epochs + epochs_completed
+
 
 def getCategoryNamesDictionary(cat_to_name_file='cat_to_name.json'):
     with open(cat_to_name_file, 'r') as f:
         cat_to_name = json.load(f)
     return cat_to_name
 
-def trainAndCheckpointModel(model,arch,data_dir,save_dir,epochs_completed=0, epochs=6, lr=0.001, device_type='cuda'):
 
-    epochs_completed = trainNetwork(model, createTrainingDataloader(data_dir), createTestingDataloader(data_dir)
-                                      , lr=lr
-                                      , epochs=epochs
-                                      , epochs_completed=epochs_completed
-                                      , device_type=device_type)
+def trainAndCheckpointModel(model, arch, data_dir, save_dir, epochs_completed=0, epochs=6, lr=0.001,
+                            device_type='cuda'):
+    epochs_completed = trainNetwork(model, createTrainingDataloader(data_dir), createValidationDataloader(data_dir)
+                                    , lr=lr
+                                    , epochs=epochs
+                                    , epochs_completed=epochs_completed
+                                    , device_type=device_type)
     # Training is done, Lets save our work
-    saveCheckpointToFile(arch,epochs_completed, model,data_dir,save_dir)
+    saveCheckpointToFile(arch, epochs_completed, model, data_dir, save_dir)
 
 
 def initializePretrainedModel(arch, hidden_units, output_units):
-    if arch=="VGG13":
+    if arch == "VGG13":
         model = models.vgg13(pretrained=True)
-    elif arch=="VGG16":
+    elif arch == "VGG16":
         model = models.vgg16(pretrained=True)
     else:
         raise RuntimeError("Unsupported Architecture")
     freezeParameters(model)
-    model.classifier = createClassifier(hidden_units,output_units)
+    model.classifier = createClassifier(hidden_units, output_units)
     return model
 
 
-def saveCheckpointToFile(arch,epochs_completed, model, data_dir,save_dir):
-    checkpoint_pth = save_dir+'/''checkpoint.pth'
-    torch.save(createCheckpointDictionary(arch,epochs_completed, model,data_dir), checkpoint_pth)
-    print("Saved checkpoint to {}, after training for a total of {} epochs".format(checkpoint_pth,epochs_completed))
+def saveCheckpointToFile(arch, epochs_completed, model, data_dir, save_dir):
+    checkpoint_pth = save_dir + '/''checkpoint.pth'
+    torch.save(createCheckpointDictionary(arch, epochs_completed, model, data_dir), checkpoint_pth)
+    print("Saved checkpoint to {}, after training for a total of {} epochs".format(checkpoint_pth, epochs_completed))
 
 
-def createCheckpointDictionary(arch,epochs_completed, model, data_dir):
+def createCheckpointDictionary(arch, epochs_completed, model, data_dir):
     checkpoint = {'state_dict': model.state_dict(),
-                  'class_to_idx': createTestingDataset(data_dir).class_to_idx,  # TODO: Should this be training dataset's?
+                  'class_to_idx': createTestingDataset(data_dir).class_to_idx,
+                  # TODO: Should this be training dataset's?
                   'epochs_completed': epochs_completed
-                  ,'arch':arch
+        , 'arch': arch
+        , 'classifier': model.classifier
                   }
     return checkpoint
 
-def retrieveModelFromCheckpoint(checkpoint_pth,hidden_units=512,output_units=102):
-    model = loadModelFromCheckpoint(checkpoint_pth,hidden_units,output_units)
+
+def retrieveModelFromCheckpoint(checkpoint_pth):
+    model = loadModelFromCheckpoint(checkpoint_pth)
     return model
 
-
-def createOurModelFromVGG16(hidden_units,output_units):
-    model = models.vgg16(pretrained=True)
-    freezeParametersAndAttachOurClassifier(hidden_units,output_units, model)
-    return model
-
-
-def freezeParametersAndAttachOurClassifier(hidden_units,output_units, model):
-    freezeParameters(model)  # we don't want to calculate gradients in this phase, so freeze
-    model.classifier = createClassifier(hidden_units,output_units)  # make sure we rebuild the architecture exactly, here: classifer
-
-
-def createOurModelFromVGG13(hidden_units,output_units):
-    model = models.vgg13(pretrained=True)
-    freezeParametersAndAttachOurClassifier(hidden_units,output_units,model)
-    return model
-
-
-def loadModelFromCheckpoint(checkpoint_pth, hidden_units,output_units):
+def loadModelFromCheckpoint(checkpoint_pth):
     checkpoint = torch.load(checkpoint_pth)
     # attach state dictionary from the loaded checkpoint to model
     loaded_state_dict = checkpoint['state_dict']
-    arch_ = checkpoint['arch']
-    if arch_ == "VGG16":
-        model = createOurModelFromVGG16(hidden_units,output_units)
-    elif arch_ == "VGG13":
-        model = createOurModelFromVGG13(hidden_units,output_units)
+    arch = checkpoint['arch']
+    if arch == "VGG16":
+        model = models.vgg16(pretrained=True)
+    elif arch == "VGG13":
+        model = models.vgg13(pretrained=True)
     else:
-        raise RuntimeError("Unrecognized architecture model {}".format(arch_))
+        raise RuntimeError("Unrecognized architecture model {}".format(arch))
+    #
+    # Freeze the parameter of the pretrained model
+    #
+    freezeParameters(model)
+    model.classifier = checkpoint['classifier']
     #
     # Attach attributes to model for retrieval later
     #
     model.load_state_dict(loaded_state_dict)
     model.class_to_idx = checkpoint['class_to_idx']
     model.epochs_completed = checkpoint['epochs_completed']
-    model.arch = arch_
+    model.arch = arch
+
     print("Loaded model was previously trained for {} epochs".format(checkpoint['epochs_completed']))
     return model
-
