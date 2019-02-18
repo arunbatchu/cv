@@ -1,25 +1,28 @@
+import argparse
+
+import numpy as np
+import torch
+from PIL import Image
 from numpy.core.multiarray import ndarray
 from torchvision import transforms
-import torch
+
 import helper as h
-from PIL import Image
-import argparse
-import numpy as np
+
 
 def process_image(image):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
         returns an Numpy array
     '''
-    image = resize_PIL_image(image,resize_to=256)
-    image = centercrop_PIL_image(image,crop_size=224)
+    image = resize_PIL_image(image, resize_to=256)
+    image = centercrop_PIL_image(image, crop_size=224)
 
-    #Normalize
+    # Normalize
     mean = np.array([0.485, 0.456, 0.406])
     std = np.array([0.229, 0.224, 0.225])
     np_image = np.array(image)
     np_image = np_image / np_image.max()
-    np_image = (np_image - mean)/std
-    np_image = np_image.transpose(2,0,1)
+    np_image = (np_image - mean) / std
+    np_image = np_image.transpose(2, 0, 1)
 
     return np_image
 
@@ -63,18 +66,16 @@ def process_image_using_pytorch_transforms(image):
     return img_tensor
 
 
-def predict(image_path, model, topk=5, device_type='cuda',cat_to_name_file=None):
+def predict(image_path, model, topk=5, device_type='cuda', cat_to_name_file=None):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
     model.to(device_type)
     model.eval()
-    img_pil=Image.open(image_path)
+    img_pil = Image.open(image_path)
     np_image: ndarray = process_image(img_pil)
     img_tensor = torch.from_numpy(np_image).float()
-    print(type(img_tensor))
 
-    #TODO convert to plural images. How?
-    images = img_tensor.to(device_type).unsqueeze_(0) #convert to device type and add batchsize=1 to first column
+    images = img_tensor.to(device_type).unsqueeze_(0)  # convert to device type and add batchsize=1 to first column
     # Calculate the class probabilities (softmax) for img
     with torch.no_grad():
         output = model.forward(images)
@@ -84,7 +85,7 @@ def predict(image_path, model, topk=5, device_type='cuda',cat_to_name_file=None)
     values, indices = probabilities.topk(topk)
     indices = indices.data.numpy().squeeze()
     indices_list = indices.tolist()
-    if(cat_to_name_file!=None):
+    if (cat_to_name_file != None):
         idx_to_class = {val: key for key, val in model.class_to_idx.items()}
         cat_to_name = h.getCategoryNamesDictionary(cat_to_name_file)
         topK_classes = [cat_to_name[category_key] for category_key in [idx_to_class[index] for index in indices_list]]
@@ -92,13 +93,17 @@ def predict(image_path, model, topk=5, device_type='cuda',cat_to_name_file=None)
     else:
         return indices_list, values
 
+
+#
 # Get command line arguments
 #
-parser =argparse.ArgumentParser()
-parser.add_argument("--gpu",help="Optional to run on gpu if available", action='store_true')
-parser.add_argument("--top_k", type=int, required=False, help="Top K most likely classes. There are a total of 102 classes.", default=5)
+parser = argparse.ArgumentParser()
+parser.add_argument("--gpu", help="Optional to run on gpu if available", action='store_true')
+parser.add_argument("--top_k", type=int, required=False,
+                    help="Top K most likely classes. There are a total of 102 classes.", default=5)
 parser.add_argument("--imagepath", type=str, required=True, help="File path to jpeg to be classified")
-parser.add_argument("--cat_to_name", type=str, required=False, help="File path to category to name mapping in json format")
+parser.add_argument("--cat_to_name", type=str, required=False,
+                    help="File path to category to name mapping in json format")
 parser.add_argument("--checkpointpath", type=str, default="checkpoint.pth"
                     , help="File path to checkpoint file. Default is checkpoint.pth in current directory."
                     )
@@ -106,14 +111,12 @@ namespace = parser.parse_args()
 
 test_path_name = namespace.imagepath
 model = h.retrieveModelFromCheckpoint(namespace.checkpointpath)
-#By default, choose device type to be cpu
-device_type = 'cpu'
-if namespace.gpu == True:
-    device_type = 'cuda'
-topK_classes, probabilities = predict(test_path_name, model, namespace.top_k, device_type=device_type,cat_to_name_file=namespace.cat_to_name)
-probabilities = probabilities.data.numpy().squeeze()#tensor --> numpy and flatten
+device_type = h.get_device_type(namespace.gpu)
+topK_classes, probabilities = predict(test_path_name, model, namespace.top_k, device_type=device_type,
+                                      cat_to_name_file=namespace.cat_to_name)
+probabilities = probabilities.data.numpy().squeeze()  # tensor --> numpy and flatten
 print("Top {} classes".format(namespace.top_k))
 index = 0
 for classname in topK_classes:
-    index+=1
-    print("{}. {:15} with probability {:5.2f}%".format(index,classname,round(100*probabilities[index-1],2)))
+    index += 1
+    print("{}. {:15} with probability {:5.2f}%".format(index, classname, round(100 * probabilities[index - 1], 2)))

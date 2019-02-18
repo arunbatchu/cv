@@ -8,6 +8,17 @@ from torchvision import transforms, datasets, models
 batch_size = 64
 
 
+def get_device_type(device_type_selection):
+    if device_type_selection == True:
+        if (torch.cuda.is_available()):
+            device_type = 'cuda'
+        else:
+            raise RuntimeError("--gpu option selected, but no gpu found")
+    else:
+        device_type = 'cpu'
+    return device_type
+
+
 def createNormalizTransform():
     return transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, .225])
 
@@ -199,6 +210,7 @@ def retrieveModelFromCheckpoint(checkpoint_pth):
     model = loadModelFromCheckpoint(checkpoint_pth)
     return model
 
+
 def loadModelFromCheckpoint(checkpoint_pth):
     checkpoint = torch.load(checkpoint_pth)
     # attach state dictionary from the loaded checkpoint to model
@@ -225,7 +237,9 @@ def loadModelFromCheckpoint(checkpoint_pth):
 
     print("Loaded model was previously trained for {} epochs".format(checkpoint['epochs_completed']))
     return model
-def test_trained_network(model,testing_dataloader):
+
+
+def test_trained_network(model, testing_dataloader):
     # Test out your network!
     model.eval()
     model.to('cuda')  # Use GPU
@@ -251,4 +265,3 @@ def test_trained_network(model,testing_dataloader):
     print("=============Average Loss and Accuracy for testing daataset========")
     print("Test Loss: {:.3f}..".format(test_loss / len(testing_dataloader)),
           "Test Accuracy: {:.3f}".format(accuracy / len(testing_dataloader)))
-
