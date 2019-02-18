@@ -15,11 +15,7 @@ parser.add_argument("--epochs", help="# of epochs. Default is 5", type=int, defa
 namespace = parser.parse_args()
 previously_trained_model = h.retrieveModelFromCheckpoint("checkpoint.pth")
 
-if namespace.gpu == True:
-    device_type = 'cuda'
-else:
-    device_type = 'cpu'
-
+device_type = h.get_device_type(namespace.gpu)
 # TODO : remove hardcoded assumption of checkpoint directory
 model =  h.trainAndCheckpointModel(previously_trained_model
                           , previously_trained_model.arch
