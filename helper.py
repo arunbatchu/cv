@@ -77,17 +77,25 @@ def freezeParameters(model):
         param.requires_grad = False
 
 
-def createClassifier(hidden_units, output_units):
+def createClassifier(layers, hidden_units, output_units):
     from collections import OrderedDict
-    classifier = nn.Sequential(OrderedDict([
-        ('fc1', nn.Linear(25088, 1000)),
-        ('relu', nn.ReLU()),
-        ('fc2', nn.Linear(1000, hidden_units)),
-        ('relu', nn.ReLU()),
-        ('fc3', nn.Linear(hidden_units, output_units)),
-        ('output', nn.LogSoftmax(dim=1))
-    ]))
-    classifier.dropout = nn.Dropout(p=0.5)
+    first_layer = ('first', nn.Linear(25088, hidden_units))
+    final_layer = ('final', nn.Linear(hidden_units, output_units))
+    layers_array = [first_layer, ('relu_first', nn.ReLU())]
+    #Now add hidden layers
+    for i in range(layers):
+        layers_array.append(('fc{}'.format(i), nn.Linear(hidden_units, hidden_units)))
+        layers_array.append(('relu{}'.format(i), nn.ReLU()))
+        layers_array.append(('dropout{}'.format(i),nn.Dropout(p=0.2)))
+    layers_array.append(final_layer)
+    layers_array.append(('output',nn.LogSoftmax(dim=1)))
+
+    # layers_array = [first_layer, relu_layer, hidden_layer,
+    #                 relu_layer, final_layer, ('output', nn.LogSoftmax(dim=1))]
+    classifier = nn.Sequential(OrderedDict(
+        layers_array))
+    # classifier.dropout = nn.Dropout(p=0.5)
+    print(classifier)
     return classifier
 
 
@@ -112,7 +120,7 @@ def validation(model, validation_dataloader, criterion, device_type='cuda'):
 
 
 def trainNetwork(model, training_dataloader, validation_dataloader, lr=0.001, epochs=1, epochs_completed=0,
-                 device_type='cuda'):
+                 device_type='cuda', print_every=10):
     """
 
     :type epochs: int
@@ -122,7 +130,7 @@ def trainNetwork(model, training_dataloader, validation_dataloader, lr=0.001, ep
     epochs = epochs  # 1 for testing loading and saving. TODO: increase this after test is complete. 3 is good.
     steps = 0
     running_loss = 0
-    print_every = 40
+    print_every = print_every
     model.to(device_type)  # Use GPU
 
     criterion = nn.NLLLoss()
@@ -167,18 +175,19 @@ def getCategoryNamesDictionary(cat_to_name_file='cat_to_name.json'):
 
 
 def trainAndCheckpointModel(model, arch, data_dir, save_dir, epochs_completed=0, epochs=6, lr=0.001,
-                            device_type='cuda'):
+                            device_type='cuda',print_every=10):
     epochs_completed = trainNetwork(model, createTrainingDataloader(data_dir), createValidationDataloader(data_dir)
                                     , lr=lr
                                     , epochs=epochs
                                     , epochs_completed=epochs_completed
-                                    , device_type=device_type)
+                                    , device_type=device_type
+                                    ,print_every=print_every)
     # Training is done, Lets save our work
     saveCheckpointToFile(arch, epochs_completed, model, data_dir, save_dir)
     return model
 
 
-def initializePretrainedModel(arch, hidden_units, output_units):
+def initializePretrainedModel(arch, hidden_units,output_units,layers):
     if arch == "VGG13":
         model = models.vgg13(pretrained=True)
     elif arch == "VGG16":
@@ -186,7 +195,7 @@ def initializePretrainedModel(arch, hidden_units, output_units):
     else:
         raise RuntimeError("Unsupported Architecture")
     freezeParameters(model)
-    model.classifier = createClassifier(hidden_units, output_units)
+    model.classifier = createClassifier(layers, hidden_units, output_units)
     return model
 
 
@@ -197,8 +206,10 @@ def saveCheckpointToFile(arch, epochs_completed, model, data_dir, save_dir):
 
 
 def createCheckpointDictionary(arch, epochs_completed, model, data_dir):
+    class_to_idx = createTrainingDataset(data_dir).class_to_idx
+    print(class_to_idx)
     checkpoint = {'state_dict': model.state_dict(),
-                  'class_to_idx': createTrainingDataset(data_dir).class_to_idx,
+                  'class_to_idx': class_to_idx,
                   'epochs_completed': epochs_completed
         , 'arch': arch
         , 'classifier': model.classifier
@@ -262,6 +273,6 @@ def test_trained_network(model, testing_dataloader):
         print(
             "Test Loss this batch:{:.3f}, Accuracy this batch:{:.3f}".format(test_loss_this_batch, accuracy_this_batch))
 
-    print("=============Average Loss and Accuracy for testing daataset========")
+    print("=============Average Loss and Accuracy for testing dataset========")
     print("Test Loss: {:.3f}..".format(test_loss / len(testing_dataloader)),
           "Test Accuracy: {:.3f}".format(accuracy / len(testing_dataloader)))

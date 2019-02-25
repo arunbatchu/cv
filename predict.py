@@ -85,6 +85,7 @@ def predict(image_path, model, topk=5, device_type='cuda', cat_to_name_file=None
     values, indices = probabilities.topk(topk)
     indices = indices.data.numpy().squeeze()
     indices_list = indices.tolist()
+    print(indices_list)
     if (cat_to_name_file != None):
         idx_to_class = {val: key for key, val in model.class_to_idx.items()}
         cat_to_name = h.getCategoryNamesDictionary(cat_to_name_file)
