@@ -1,4 +1,6 @@
 # source: https://www.kaggle.com/aakashns/pytorch-basics-linear-regression-from-scratch/notebook
+from typing import Any, Iterator
+
 import torch
 import numpy as np
 import torch.nn as nn
@@ -33,7 +35,6 @@ train_ds = TensorDataset(inputs, targets)
 
 #Now that we have a data set , lets define a data loader
 train_dl = DataLoader(train_ds,batch_size=5, shuffle=True)
-train_dl_iterator = iter(train_dl)
 # print(next(train_dl_iterator))
 
 def fit(num_epochs, model, loss_fn, opt):
