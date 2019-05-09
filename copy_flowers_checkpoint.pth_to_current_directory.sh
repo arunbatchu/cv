@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-cp checkpoints/flower_model_checkpoint_backups/checkpoint.pth ./checkpoint.pth
+cp checkpoints/flowers/checkpoint.pth ./checkpoint.pth
 
