@@ -8,6 +8,8 @@ from torchvision import transforms
 
 import helper as h
 
+import os, shutil
+
 
 def process_image(image):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
@@ -102,22 +104,29 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--gpu", help="Optional to run on gpu if available", action='store_true')
 parser.add_argument("--top_k", type=int, required=False,
                     help="Top K most likely classes. There are a total of 102 classes.", default=5)
-parser.add_argument("--imagepath", type=str, required=True, help="File path to jpeg to be classified")
+# parser.add_argument("--imagepath", type=str, required=True, help="File path to jpeg to be classified")
 parser.add_argument("--cat_to_name", type=str, required=False,
                     help="File path to category to name mapping in json format")
 parser.add_argument("--checkpointpath", type=str, default="checkpoint.pth"
                     , help="File path to checkpoint file. Default is checkpoint.pth in current directory."
                     )
+parser.add_argument("--test_dir", required=True, type=str, help="Directory containing input files")
 namespace = parser.parse_args()
 
-test_path_name = namespace.imagepath
+# test_path_name = namespace.imagepath
 model = h.retrieveModelFromCheckpoint(namespace.checkpointpath)
 device_type = h.get_device_type(namespace.gpu)
-topK_classes, probabilities = predict(test_path_name, model, namespace.top_k, device_type=device_type,
-                                      cat_to_name_file=namespace.cat_to_name)
-probabilities = probabilities.data.numpy().squeeze()  # tensor --> numpy and flatten
-print("Top {} classes".format(namespace.top_k))
-index = 0
-for classname in topK_classes:
-    index += 1
-    print("{}. {:15} with probability {:5.2f}%".format(index, classname, round(100 * probabilities[index - 1], 2)))
+print(namespace.test_dir)
+files = [f for f in os.listdir(namespace.test_dir) if os.path.isfile(os.path.join(namespace.test_dir,f)) ]
+# files = os.listdir(namespace.test_dir)
+print(len(files))
+for file in files:
+    print(os.path.join(namespace.test_dir,file))
+    topK_classes, probabilities = predict(os.path.join(namespace.test_dir,file), model, namespace.top_k, device_type=device_type,
+                                          cat_to_name_file=namespace.cat_to_name)
+    probabilities = probabilities.data.numpy().squeeze()  # tensor --> numpy and flatten
+    print("Top {} classes".format(namespace.top_k))
+    index = 0
+    for classname in topK_classes:
+        index += 1
+        print("{}. {:15} with probability {:5.2f}%".format(index, classname, round(100 * probabilities[index - 1], 2)))
